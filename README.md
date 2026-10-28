@@ -1,1 +1,3 @@
 # GeoguessrBot
+
+Todo: everything
