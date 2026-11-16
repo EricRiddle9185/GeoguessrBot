@@ -1,5 +1,3 @@
-"""Prepare grouped development data and an unused final holdout."""
-
 import argparse
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
@@ -18,7 +16,6 @@ SPLIT_SEED = 20261108
 
 
 def grouped_images(rows):
-    """Find connected components using timestamp blocks and Hamming radius four."""
     parents = list(range(len(rows)))
 
     def find(index):
@@ -103,16 +100,16 @@ def prepare_growth_data(root):
     root = Path(root).resolve()
     root.mkdir(parents=True, exist_ok=True)
     protocol = {
-        "starting_scope": "The forty data-rich countries from the previous comparison.",
+        "starting_scope": "The 40 countries from the classifier comparison.",
         "split_seed": SPLIT_SEED,
         "minimum_training_images": 100, "minimum_training_groups": 3,
         "minimum_validation_images": 30, "minimum_validation_groups": 2,
         "minimum_final_test_images": 10, "minimum_final_test_groups": 2,
-        "final_target": "10% of unique country images, capped at 100, using only groups with no previously used image. Targets may be exceeded to retain whole groups.",
-        "validation_target": "20% of remaining images, capped at 500, retaining whole groups.",
-        "coverage_rule": "Exclude a country only if the structural split minimums cannot be met; never use a model score to decide coverage.",
-        "grouping": "Within each country, connect identical decoded images, dHash distance <=4, and equal five-minute filename timestamp blocks. This cannot prove geographic independence.",
-        "old_results": "The old train, validation, and test samples are development data. No group containing a previously used image can enter final_test.",
+        "final_target": "10% of unique images per country, capped at 100; unused groups only. Keep groups whole.",
+        "validation_target": "20% of remaining images, capped at 500; keep groups whole.",
+        "coverage_rule": "Use split-size and group minimums to determine coverage before training.",
+        "grouping": "Identical pixels, dHash distance <=4, or matching five-minute blocks within a country.",
+        "old_results": "Previously used images and their groups are excluded from final_test.",
         "training_caps": [200, 500, 1000],
     }
     protocol_path = root / "data_protocol.json"
@@ -210,7 +207,7 @@ def prepare_growth_data(root):
         "split_counts": {split: sum(row["split"] == split for row in assigned) for split in ("train", "validation", "final_test")},
         "data_fingerprint": data_fingerprint, "previously_used_images": len(old_rows),
         "final_test_evaluated": False,
-        "limitation": "Fresh with respect to prior experiment image groups; geographic independence is not established.",
+        "limitation": "Unused image groups; geographic independence is unverified.",
     })
     write_json(root / "holdout_status.json", {"status": "reserved_not_evaluated", "manifest_sha256": hashlib.sha256((root / "final_test_manifest.csv").read_bytes()).hexdigest()})
     print("Larger-data split prepared:", root, flush=True)
@@ -218,7 +215,7 @@ def prepare_growth_data(root):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description="Prepare grouped training, validation, and final-test data.")
     parser.add_argument("--iteration-dir", type=Path)
     args = parser.parse_args()
     directory = args.iteration_dir or PROJECT_DIR / "runs/iterations" / datetime.now().strftime("data_growth_%Y%m%d_%H%M%S")

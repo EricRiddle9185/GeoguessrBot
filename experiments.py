@@ -40,10 +40,10 @@ def experiment_protocol():
         "split_seed": 416, "split_proportions": [0.6, 0.2, 0.2],
         "epochs": 30, "learning_rate": 0.001, "weight_decay": 0.0001,
         "head_batch_size": 128, "encoder_frozen": True,
-        "selection": "Lowest mean validation cross-entropy across three training seeds, separately for each country count. Seed 416 is the representative checkpoint.",
-        "test_policy": "All architecture choices are recorded before evaluating test results. Test results are not used to choose architectures or epochs.",
-        "control": "One linear classifier per country count with only its training labels shuffled, using seed 416. Excluded from model selection.",
-        "limitation": "Repeated seeds measure initialization and minibatch variability on the same split. They are not independent test sets. Geographic independence cannot be established from this dataset.",
+        "selection": "Minimum mean validation loss per country count; export seed 416.",
+        "test_policy": "Select architectures and epochs before test evaluation.",
+        "control": "Linear classifier with shuffled training labels, seed 416; excluded from selection.",
+        "limitation": "Seeds share one split. Geographic independence is unverified.",
         "code_sha256": {
             name: hashlib.sha256((REPO_DIR / name).read_bytes()).hexdigest()
             for name in ("train.py", "experiments.py")
@@ -261,24 +261,24 @@ def export_selected(root, selections):
 def write_report(root, summary, selections):
     lines = [
         "Frozen ResNet-50 classifier experiments", "",
-        "Every country has 200 images, with 120 training, 40 validation, and 40 test images. The original ten-country split is preserved.",
-        "The encoder, preprocessing, optimizer settings, image cap, and split stay fixed. Only the classifier architecture and training seed change within each country count.",
-        "Hidden layers use ReLU and dropout 0.3. All models train for 30 epochs. Checkpoints use minimum validation loss; architecture selection uses mean validation loss across seeds 416, 417, and 418.", "",
-        "Countries | Architecture | Test accuracy mean +/- SD | Macro F1 | Shared-test accuracy | Chance", 
+        "200 images per country; the original ten-country split is retained.",
+        "Compare classifier architectures with the same encoder, preprocessing, optimizer, and split.",
+        "ReLU, dropout 0.3, 30 epochs. Select by validation loss across seeds 416, 417, and 418.", "",
+        "Countries | Architecture | Test accuracy mean +/- SD | Macro F1 | Shared-test accuracy | Chance",
     ]
     for row in summary:
         lines.append(f"{row['countries']} | {row['architecture']} | {row['test_accuracy_mean']:.2%} +/- {row['test_accuracy_sd']:.2%} | {row['test_macro_f1_mean']:.3f} | {row['shared_test_accuracy_mean']:.2%} | {row['chance_accuracy']:.2%}")
     lines.extend(("", "Architectures selected before test evaluation:"))
     lines.extend(f"{count} countries: {selections[str(count)]['architecture']}" for count in COUNTRY_COUNTS)
     lines.extend(("", "Interpretation and limits:",
-        "The shuffled-label linear runs are negative controls, not candidate models. They shuffle only training labels and retain true validation and test labels.",
-        "More countries lower random-guessing accuracy but also change task difficulty and increase total training images. Fixed images per country and a shared 400-image test subset help separate these effects, but this is not a fixed-total-data comparison.",
-        "Shared-test accuracy uses the original 400 ten-country test images while allowing the model to predict any of its countries.",
-        "Per-country false-positive counts and rates are recorded in each trial's metrics.json. A low multiclass false-positive rate can partly reflect many negative classes; also inspect precision, recall, macro F1, and accuracy.",
-        "The reported SD measures training-seed variability on one held-out split. It is not a confidence interval over independent test datasets.",
-        "The dataset has no panorama IDs or coordinates, so grouping similar screenshots and filename time blocks cannot guarantee geographic independence.",
-        "The original test set has been inspected in previous work. It remains useful for paired comparisons but is not a fresh final benchmark.",
-        "No image cap was increased, no new source dataset was added, and the encoder was not fine-tuned.",
+        "Shuffled-label runs are controls and are excluded from selection.",
+        "Adding countries changes task difficulty and total training size.",
+        "Shared-test accuracy uses the original 400 images with all current output classes.",
+        "Per-country precision, recall, F1, and false-positive rates are in metrics.json.",
+        "SD measures seed variation on one split.",
+        "Image grouping does not establish geographic independence.",
+        "The original test set has already been inspected.",
+        "The encoder, image cap, and source dataset are unchanged.",
     ))
     (root / "report.txt").write_text("\n".join(lines) + "\n", encoding="ascii")
 
@@ -323,6 +323,6 @@ def run_experiments(root=None):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description="Compare country-classifier architectures and training seeds.")
     parser.add_argument("--experiment-dir", type=Path)
     run_experiments(parser.parse_args().experiment_dir)

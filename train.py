@@ -185,7 +185,7 @@ def prepare_data(args, run_dir):
         "source_class_counts": source_counts, "selected_images": len(rows), "classes": classes,
         "split_counts": {split: {name: sum(row["country"] == name and row["split"] == split for row in rows) for name in classes} for split in SPLITS},
         "excluded_images": len(excluded), "split_method": "Group similar images and five-minute filename timestamp blocks within each country; target 60/20/20 proportions.",
-        "limitation": "The source has no panorama IDs or GPS labels. Grouping is a heuristic and cannot prove geographic independence.",
+        "limitation": "No panorama IDs or coordinates; geographic independence is unverified.",
     }
     write_json(run_dir / "dataset_summary.json", summary)
     write_csv(run_dir / "manifest.csv", rows, ("path", "country", "split", "group", "pixel_sha256", "dhash", "time_block", "file_size", "modified_ns"))
@@ -288,7 +288,6 @@ def build_classifier(in_features, num_classes, hidden_sizes=(), dropout=0.0):
 
 
 def classification_metrics(labels, probabilities, classes):
-    """Rows of the confusion matrix are true labels; columns are predictions."""
     predictions = probabilities.argmax(1)
     confusion = torch.zeros((len(classes), len(classes)), dtype=torch.int64)
     for target, prediction in zip(labels, predictions):
@@ -355,7 +354,6 @@ def save_plots(run_dir, history, metrics, classes):
 
 
 def fit_classifier(head, features, labels, masks, args, device, training_labels=None, class_weights=None):
-    """Fit the head on training features and select weights by validation loss."""
     generator = torch.Generator().manual_seed(args.seed)
     targets = labels[masks["train"]] if training_labels is None else training_labels
     train_loader = DataLoader(
@@ -410,7 +408,6 @@ def fit_classifier(head, features, labels, masks, args, device, training_labels=
 
 
 def load_model_checkpoint(path, device="cpu"):
-    """Load a full checkpoint or a head checkpoint using its saved architecture."""
     os.environ["TORCH_HOME"] = str(PROJECT_DIR / ".cache" / "torch")
     checkpoint = torch.load(path, map_location="cpu", weights_only=True)
     architecture = checkpoint.get("classifier", {"hidden_sizes": [], "dropout": 0.0})
@@ -485,7 +482,7 @@ def run_training(args, model=None):
 
 
 def make_parser():
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description="Train a country classifier with frozen ResNet-50 features.")
     parser.add_argument("--data-dir", type=Path, default=REPO_DIR / "geoguessr_data" / "data")
     parser.add_argument("--num-countries", type=int, default=10, help="Use the largest eligible classes; zero selects all eligible classes.")
     parser.add_argument("--countries", nargs="+", help="Explicit country folder names instead of the largest classes.")

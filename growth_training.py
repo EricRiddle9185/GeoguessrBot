@@ -81,14 +81,14 @@ def training_protocol(summary):
         "data_fingerprint": summary["data_fingerprint"], "stages": STAGES,
         "training_seeds": SEEDS, "classifier": ARCHITECTURE, "encoder_frozen": True,
         "epochs": 30, "learning_rate": 0.001, "weight_decay": 0.0001, "batch_size": 128,
-        "checkpoint_selection": "Minimum unweighted validation cross-entropy, including weighted-training trials.",
-        "configuration_selection": "Highest mean validation macro F1 across two training seeds; ties use lower mean unweighted validation loss. Representative seed is fixed at 416.",
-        "weighting": "Square root of inverse training frequency, normalized to mean one. Computed only from each trial's training labels.",
-        "head_initialization": "Reinitialize each classifier from its training seed. Do not warm-start from earlier heads.",
-        "validation": "One fixed grouped validation set for all data caps and loss choices.",
-        "final_test": "Reserved groups are not encoded, predicted, or scored during iterations or final-candidate fitting.",
-        "final_candidate": "After development, use the chosen weighting mode with all training-pool images, the same architecture, seed 416, and 30 epochs. Keep validation and final test separate.",
-        "scope": "Coverage is set by the data-only eligibility rule before training; excluded countries are listed with reasons.",
+        "checkpoint_selection": "Minimum unweighted validation cross-entropy.",
+        "configuration_selection": "Highest mean validation macro F1; break ties by mean validation loss. Export seed 416.",
+        "weighting": "Square-root inverse training frequency, normalized to mean one.",
+        "head_initialization": "Initialize each classifier from its training seed.",
+        "validation": "Use the same grouped validation set for every trial.",
+        "final_test": "Exclude final-test groups from development and candidate fitting.",
+        "final_candidate": "Use all training images, selected weighting, seed 416, and 30 epochs; retain validation.",
+        "scope": "Apply data eligibility rules before training; record excluded countries.",
     }
 
 
@@ -264,7 +264,7 @@ def evaluate_final(root):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description="Run data-growth trials, fit a candidate, or evaluate the final holdout.")
     parser.add_argument("--iteration-dir", type=Path, required=True)
     parser.add_argument("--action", choices=("iterate", "final-candidate", "evaluate-final"), default="iterate")
     arguments = parser.parse_args()
